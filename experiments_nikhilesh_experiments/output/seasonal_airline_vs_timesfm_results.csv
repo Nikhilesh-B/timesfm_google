@@ -1,0 +1,2 @@
+n,seasonal_period,k_first,n_test,airline_fit_failures,mse_airline_sarimax,mse_timesfm
+120,12,37,83,0,0.9156648697480257,0.8112612122990258
