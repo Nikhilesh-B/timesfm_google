@@ -1,0 +1,25 @@
+Experiments to run on timesFM: 
+
+All t+1 predictions. 
+
+Taking AR(2) example test: 
+1. Compare OOS TSF performance for the AR(2) versus timefm 2.5 using expanding window approach for t+1 predictions
+2. Select a fixed window from t=0 to t=10 for instance as your initial window, train both models on this window and then make a prediction for t=11.
+3. Continue expanding this window by one datapoint and "re-training"/"re-prompting" your model and then re-computing the error. 
+3. MSE is the comparison metric. 
+4. p=2, "training window" => AR model what you feed to your regression; TIMESFM what you provide the model for predcition. 
+
+
+Synthetic:
+    Stationary time series: 
+    - AR models p=2,5,10,20; n=10,100,1000,10000 
+    - MA models q=2,5,10,20; n=10,100,1000,10000
+    - ARMA models p,q={2,5,10,20}^2 grid; n=10,100,10000
+
+    Non-stationary time series: 
+    - Seasonal data (airline model generated data)
+    - Hamilton model generated data
+
+Real-data: 
+    - Interest rates 
+    - GNP data USA  
