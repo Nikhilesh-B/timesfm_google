@@ -22,3 +22,27 @@ Synthetic:
 Real-data: 
     - Interest rates 
     - GNP data USA  
+
+
+Total examples: 
+T = 600, and starting window of 360 
+
+
+
+N=100, 
+
+and can increase in the difference in forecasting process 
+
+Diebold Mariana
+
+
+Which models: 
+MA models (ARMA) (not MA only)
+ARIMA (Integrated)
+
+
+    
+    Markov-switching (not that one)
+
+
+Horizons and then the log score for each of these and checking this as how it works => stupider benchmark like the mean or median; 
