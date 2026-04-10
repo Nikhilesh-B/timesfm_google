@@ -1,0 +1,2 @@
+p_dgp,n,ar_fit_failures_total,dm_pvalue_median,mse_ar_mean,mse_ar_std,mse_timesfm_mean,mse_timesfm_std,mse_diff_timesfm_minus_ar,better_mse_model
+5,5,0,0.021715679041267894,0.9909755868445499,0.09700661581677507,1.0599947460341008,0.11507812510365573,0.06901915918955093,AR
