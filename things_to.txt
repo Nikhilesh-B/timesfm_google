@@ -1,0 +1,20 @@
+1. Move to real data 
+2. Quantile stats, ratio RMSE & MAE (relative to mean)
+3. Remove MSE
+4. log-score (ask juan => what the simulation of; simulate and fit a kernel desnity)
+5. Recusrsive MSE to see breakdown of performance; (historical MSE)
+6. Google, Amazon, Datadog, ... (low priority)
+Overleaf, github to share results. 
+7. Bayesian AR model (another benchmark to add)
+
+What time series to use => 
+
+Multivariate time series (case to expand to multivariate time-series)
+
+Mark Watson => forecasting "related" time series (use information) different to more. 
+
+Why are they are forcused on univariate case. 
+
+Billion time series => 
+
+VAR(p)
