@@ -1,17 +1,19 @@
-Louis:
-1. Find real datasets to try on: FRED interest rates, and other real data sets. 
-2. Ratio RMSE & MAE (relative to mean) + add bar chart with plots of MAE, RMSE 
-3. Remove MSE
+1. Choosing parameters for the linear models (p,q,r)
+2. Naive benchmark:
+    i) Run prelim AR(1) model => if rho > 0.7 then naive benchmark is the last obsevrvation [for persitent time series], if <0.7 just do mean; Also do AR(1) too
+    ii) Then automate ARIMA => uncontravetial way of selecting paramters 
+    iii) Tougher bayesian competitor:
+        Optimal bayesian way to select lambda for the by maximizing the marginal likelihood (forecasting chance)
+        More lags AR(p): could leave it by a very high number [at least 24 months] => equal the capital H (for the horizon)
 
-Nikhilesh:
-1. Quantile stats
-2. log-score (ask juan => what the simulation of; simulate and fit a kernel desnity)
-3. Recusrsive MSE to see breakdown of performance; (historical MSE)
-4. Bayesian AR model (another benchmark to add) [DONE]
+        Minesotta prior => tightness selected MLE for Minesotta error (and) [Univariate forecasting] => Bayesian AR with a minessota prior => set according to marginal likelihood 
+
+        Economics => VAR (bayesian => give my the slides) (Google uni-variate);
+    iv) How to scale it => speed is important 
 
 
-Ice-box:
-6. Google, Amazon, Datadog, ... (low priority)
-7. Multivariate time series (case to expand to multivariate time-series)
-8. Mark Watson => forecasting "related" time series (use information) different to more. 
-9. Why are they are forcused on univariate case. 
+Become suscipious and use it's information and we may want o retrain it ourselves; 
+Large bayesian vector auto-regressions' => 131 (deep learning). Barbuna; 
+Fred-MD => 134 values; 
+
+What they have used for training => control the training and see how it => try to train the model and see how it does; 
