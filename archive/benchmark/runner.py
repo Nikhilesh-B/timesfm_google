@@ -8,9 +8,9 @@ from typing import Callable
 
 import numpy as np
 
-from benchmark.forecasters.base import Forecaster
-from benchmark.results import BenchmarkResults, ReplicatedBenchmarkResults
-from benchmark.series import TimeSeries
+from archive.benchmark.forecasters.base import Forecaster
+from archive.benchmark.results import BenchmarkResults, ReplicatedBenchmarkResults
+from archive.benchmark.series import TimeSeries
 
 
 class BenchmarkRunner:
@@ -55,8 +55,6 @@ class BenchmarkRunner:
 
         names = [f.name for f in self.forecasters]
         preds: dict[str, list[np.ndarray]] = {name: [] for name in names}
-        q_lists: dict[str, list[np.ndarray]] = {}
-        q_levels: dict[str, np.ndarray] = {}
         actuals_list: list[np.ndarray] = []
 
         for step, k in enumerate(origins):
@@ -73,25 +71,6 @@ class BenchmarkRunner:
                     pred = np.full(self.horizon, np.nan, dtype=np.float64)
                 preds[f.name].append(pred)
 
-                pq = None
-                try:
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore")
-                        pq = f.predict_quantiles(self.horizon)
-                except Exception:
-                    pq = None
-                if pq is not None:
-                    lev, qv = pq
-                    lev = np.asarray(lev, dtype=np.float64).ravel()
-                    qv = np.asarray(qv, dtype=np.float64)
-                    if qv.shape == (lev.size, self.horizon):
-                        q_levels[f.name] = lev
-                        q_lists.setdefault(f.name, []).append(qv)
-                    elif f.name in q_lists:
-                        q_lists[f.name].append(
-                            np.full((q_lists[f.name][-1].shape[0], self.horizon), np.nan)
-                        )
-
             if self.verbose and ((step + 1) % max(1, n_origins // 10) == 0 or step == 0):
                 print(
                     f"  [{self.series.name}] step {step + 1}/{n_origins} (k={k})",
@@ -100,20 +79,6 @@ class BenchmarkRunner:
 
         actuals_arr = np.stack(actuals_list)  # (n_origins, horizon)
         preds_arr = {name: np.stack(preds[name]) for name in names}
-
-        quantile_predictions: dict[str, np.ndarray] | None = None
-        quantile_levels_out: dict[str, np.ndarray] | None = None
-        if q_lists:
-            qp: dict[str, np.ndarray] = {}
-            ql: dict[str, np.ndarray] = {}
-            for qn, lst in q_lists.items():
-                if len(lst) == n_origins:
-                    qp[qn] = np.stack(lst, axis=0)
-                    if qn in q_levels:
-                        ql[qn] = q_levels[qn]
-            if qp:
-                quantile_predictions = qp
-                quantile_levels_out = ql
 
         if self.verbose:
             print(f"  [{self.series.name}] done — {n_origins} origins evaluated.", flush=True)
@@ -125,8 +90,6 @@ class BenchmarkRunner:
             forecaster_names=names,
             predictions=preds_arr,
             actuals=actuals_arr,
-            quantile_predictions=quantile_predictions,
-            quantile_levels=quantile_levels_out,
         )
 
 

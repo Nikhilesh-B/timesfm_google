@@ -32,13 +32,3 @@ class Forecaster(ABC):
         """Convenience: fit then predict in one call."""
         self.fit(history)
         return self.predict(horizon)
-
-    def predict_quantiles(
-        self, horizon: int
-    ) -> tuple[np.ndarray, np.ndarray] | None:
-        """Optional native quantiles: ``(levels, values)`` or ``None``.
-
-        ``levels`` shape ``(Q,)`` in (0, 1); ``values`` shape ``(Q, horizon)``.
-        """
-        return None
-

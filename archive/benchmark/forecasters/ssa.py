@@ -1,13 +1,16 @@
-"""SSAForecaster -- Singular Spectrum Analysis with direct recurrence forecasting.
+"""SSAForecaster -- full Singular Spectrum Analysis with closed-form forecasting.
 
-Algorithm:
+Implements the 7-step algorithm:
   1. Hankel matrix (M = N/2)
   2. SVD
-  3. Rank via cumulative variance threshold (with min_rank guard)
-  4. Truncated signal reconstruction
-  5. Diagonal averaging -> recovered signal f_hat
-  6. AR(d) recurrence on f_hat (least squares) -> direct iterative extrapolation
+  3. Automatic rank via gap ratio
+  4. Truncated signal Hankel
+  5. Diagonal averaging → recovered signal f_hat
+  6. Signal recursion → characteristic polynomial → closed-form f(t)
   7. AR(p) on residuals (Yule-Walker + BIC)
+
+Forecasting evaluates the closed-form signal function directly at future t
+rather than iterating the recurrence, avoiding error accumulation.
 """
 
 from __future__ import annotations
@@ -17,17 +20,22 @@ import warnings
 import numpy as np
 from statsmodels.regression.linear_model import yule_walker
 
-from benchmark.forecasters.base import Forecaster
+from archive.benchmark.forecasters.base import Forecaster
 
 
 class SSAForecaster(Forecaster):
-    """SSA forecaster with cumulative-variance rank selection and direct recurrence forecasting.
+    """Full SSA forecaster with closed-form signal extrapolation.
+
+    The signal is decomposed into a sum of exponential/oscillatory
+    components by solving the characteristic polynomial of the learned
+    recurrence.  Forecasts evaluate ``f(t) = Σ c_j λ_j^t`` directly,
+    so horizon-h errors do not compound through iterated one-step
+    predictions.
 
     Parameters:
-        max_rank: Upper bound on signal rank. None means unconstrained.
-        min_rank: Minimum signal rank (default 2 to capture conjugate oscillatory pairs).
-        var_threshold: Cumulative variance fraction to retain (default 0.90).
-        ar_max_order: Maximum AR order for the residual noise model.
+        max_rank: Upper bound on the signal rank ``d`` selected by the
+            gap-ratio heuristic.  ``None`` lets the gap ratio decide freely.
+        ar_max_order: Maximum AR order considered for the residual noise model.
     """
 
     name: str = "SSA"
@@ -35,18 +43,14 @@ class SSAForecaster(Forecaster):
     def __init__(
         self,
         max_rank: int | None = None,
-        min_rank: int = 2,
-        var_threshold: float = 0.90,
         ar_max_order: int = 15,
     ) -> None:
         self.max_rank = max_rank
-        self.min_rank = min_rank
-        self.var_threshold = var_threshold
         self.ar_max_order = ar_max_order
 
         self._signal: np.ndarray | None = None
-        self._a_coef: np.ndarray | None = None
-        self._f_hat_tail: np.ndarray | None = None
+        self._roots: np.ndarray | None = None
+        self._coeffs: np.ndarray | None = None
         self._rank: int = 0
         self._history_len: int = 0
         self._ar_phi: np.ndarray | None = None
@@ -64,8 +68,8 @@ class SSAForecaster(Forecaster):
 
         if N < 6:
             self._signal = y.copy()
-            self._a_coef = None
-            self._f_hat_tail = None
+            self._roots = None
+            self._coeffs = None
             self._ar_phi = None
             return
 
@@ -79,7 +83,7 @@ class SSAForecaster(Forecaster):
         # ── Step 2: SVD ──────────────────────────────────────────────
         U, s, Vt = np.linalg.svd(H, full_matrices=False)
 
-        # ── Step 3: Cumulative variance rank selection ────────────────
+        # ── Step 3: Gap ratio → rank d ───────────────────────────────
         d = self._select_rank(s)
         self._rank = d
 
@@ -96,15 +100,38 @@ class SSAForecaster(Forecaster):
         f_hat /= counts
         self._signal = f_hat
 
-        # ── Step 6: Recurrence coefficients via least squares ────────
+        # ── Step 6: Recursion coefficients via least squares ─────────
         #   f_t = a_1·f_{t-1} + … + a_d·f_{t-d}
         X = np.empty((N - d, d), dtype=np.float64)
         for j in range(d):
             X[:, j] = f_hat[d - j - 1 : N - j - 1]
         a_coef, _, _, _ = np.linalg.lstsq(X, f_hat[d:], rcond=None)
-        self._a_coef = a_coef
-        # Store last d values of f_hat as seed for iterative forecasting
-        self._f_hat_tail = f_hat[-d:].copy()
+
+        # ── Solve the recurrence: characteristic polynomial ──────────
+        #   z^d − a_1·z^{d−1} − … − a_d = 0
+        poly = np.empty(d + 1, dtype=np.float64)
+        poly[0] = 1.0
+        poly[1:] = -a_coef
+        roots = np.roots(poly)
+
+        # Project unstable roots onto the unit circle
+        magnitudes = np.abs(roots)
+        unstable = magnitudes > 1.0
+        if np.any(unstable):
+            roots[unstable] = roots[unstable] / magnitudes[unstable]
+
+        self._roots = roots
+
+        # ── Fit constants c_j via overdetermined Vandermonde ─────────
+        #   f_hat_t ≈ Σ_j c_j · λ_j^t   for t = 1, …, N
+        t_idx = np.arange(1, N + 1)
+        V = np.column_stack([
+            roots[j] ** t_idx for j in range(d)
+        ]).astype(np.complex128)
+        c, _, _, _ = np.linalg.lstsq(
+            V, f_hat.astype(np.complex128), rcond=None
+        )
+        self._coeffs = c
 
         # ── Step 7: AR(p) on residuals via Yule-Walker + BIC ────────
         residuals = y - f_hat
@@ -118,8 +145,19 @@ class SSAForecaster(Forecaster):
         if self._signal is None:
             raise RuntimeError("Must call fit() before predict()")
 
-        signal_fc = self._forecast_signal(horizon)
+        N = self._history_len
+
+        # Signal forecast via closed form: f(t) = Σ c_j · λ_j^t
+        signal_fc = np.zeros(horizon, dtype=np.float64)
+        if self._roots is not None and self._coeffs is not None:
+            for h in range(horizon):
+                t = N + h + 1
+                val = np.sum(self._coeffs * self._roots ** t)
+                signal_fc[h] = val.real
+
+        # Noise forecast via AR model
         noise_fc = self._forecast_ar(horizon)
+
         return signal_fc + noise_fc
 
     # ------------------------------------------------------------------
@@ -127,36 +165,22 @@ class SSAForecaster(Forecaster):
     # ------------------------------------------------------------------
 
     def _select_rank(self, s: np.ndarray) -> int:
-        """Cumulative variance rank: retain enough components to explain var_threshold of total variance."""
-        total_var = np.sum(s**2)
-        if total_var < 1e-12:
-            return self.min_rank
-
-        max_k = len(s)
+        """Gap-ratio rank selection: d = argmax_k  σ_k / σ_{k+1}."""
+        max_k = len(s) - 1
         if self.max_rank is not None:
             max_k = min(max_k, self.max_rank)
 
-        cumvar = np.cumsum(s[:max_k] ** 2) / total_var
-        # searchsorted returns index of first element >= var_threshold (0-indexed)
-        d = int(np.searchsorted(cumvar, self.var_threshold)) + 1
-        d = min(d, max_k)
-        d = max(d, self.min_rank)
-        return d
-
-    def _forecast_signal(self, horizon: int) -> np.ndarray:
-        """Iterate the learned AR(d) recurrence forward from the last d values of f_hat."""
-        if self._a_coef is None or self._f_hat_tail is None:
-            return np.zeros(horizon, dtype=np.float64)
-
-        d = self._rank
-        buf = list(self._f_hat_tail)
-        fc = np.empty(horizon, dtype=np.float64)
-        for h in range(horizon):
-            # a_coef[0] multiplies f_{t-1}, a_coef[1] f_{t-2}, ...
-            val = float(np.dot(self._a_coef, buf[-d:][::-1]))
-            fc[h] = val
-            buf.append(val)
-        return fc
+        best_idx = 0
+        best_ratio = 0.0
+        for k in range(max_k):
+            if s[k + 1] < 1e-12:
+                best_idx = k
+                break
+            ratio = s[k] / s[k + 1]
+            if ratio > best_ratio:
+                best_ratio = ratio
+                best_idx = k
+        return best_idx + 1  # rank = gap position + 1 (1-indexed)
 
     def _fit_ar_residuals(self, residuals: np.ndarray) -> None:
         """Select AR order by BIC (Yule-Walker) and store coefficients."""

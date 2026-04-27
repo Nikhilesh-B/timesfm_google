@@ -4,10 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from benchmark.forecasters.base import Forecaster
-
-# TimesFM 2.5 returns last dim [mean, P10, P20, ..., P90] when quantile head on.
-_TIMESFM_DECILE_LEVELS = np.linspace(0.1, 0.9, 9, dtype=np.float64)
+from archive.benchmark.forecasters.base import Forecaster
 
 
 class TimesFMForecaster(Forecaster):
@@ -16,9 +13,6 @@ class TimesFMForecaster(Forecaster):
     The model is loaded once on first :meth:`fit` call and reused.
     The ``max_context`` parameter controls how much history (the "prompt")
     is fed to the model -- this is one of the main knobs for benchmarking.
-
-    Native quantiles (P10--P90) are exposed via :meth:`predict_quantiles` for
-    probabilistic metrics; :meth:`predict` returns the point (mean) forecast.
 
     Parameters:
         max_context: Maximum context window for the model.
@@ -66,39 +60,10 @@ class TimesFMForecaster(Forecaster):
         self._ensure_model()
         self._history = np.asarray(history, dtype=np.float32)
 
-    def _raw_forecast(self, horizon: int):
+    def predict(self, horizon: int) -> np.ndarray:
         if self._model is None or self._history is None:
             raise RuntimeError("Must call fit() before predict()")
-        return self._model.forecast(horizon=horizon, inputs=[self._history])
-
-    def predict(self, horizon: int) -> np.ndarray:
-        point_forecast, _ = self._raw_forecast(horizon)
+        point_forecast, _ = self._model.forecast(
+            horizon=horizon, inputs=[self._history]
+        )
         return np.asarray(point_forecast[0, :horizon], dtype=np.float64)
-
-    def predict_quantiles(self, horizon: int) -> tuple[np.ndarray, np.ndarray] | None:
-        try:
-            point_forecast, qfan = self._raw_forecast(horizon)
-        except Exception:
-            return None
-        if qfan is None:
-            return None
-        qarr = np.asarray(qfan)
-        if hasattr(qarr, "detach"):
-            qarr = qarr.detach().cpu().numpy()
-        # Expected (batch, horizon, K)
-        if qarr.ndim != 3:
-            return None
-        slab = qarr[0, :horizon, :]
-        k = slab.shape[-1]
-        if k >= 10:
-            # mean + 9 deciles
-            qvals = np.asarray(slab[:, 1 : 1 + 9], dtype=np.float64).T
-            levels = _TIMESFM_DECILE_LEVELS.copy()
-        elif k == 9:
-            qvals = np.asarray(slab[:, :9], dtype=np.float64).T
-            levels = _TIMESFM_DECILE_LEVELS.copy()
-        else:
-            return None
-        if qvals.shape != (9, horizon):
-            return None
-        return levels, qvals

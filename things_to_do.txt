@@ -1,0 +1,17 @@
+Louis:
+1. Find real datasets to try on: FRED interest rates, and other real data sets. 
+2. Ratio RMSE & MAE (relative to mean) + add bar chart with plots of MAE, RMSE 
+3. Remove MSE
+
+Nikhilesh:
+1. Quantile stats
+2. log-score (ask juan => what the simulation of; simulate and fit a kernel desnity)
+3. Recusrsive MSE to see breakdown of performance; (historical MSE)
+4. Bayesian AR model (another benchmark to add) [DONE]
+
+
+Ice-box:
+6. Google, Amazon, Datadog, ... (low priority)
+7. Multivariate time series (case to expand to multivariate time-series)
+8. Mark Watson => forecasting "related" time series (use information) different to more. 
+9. Why are they are forcused on univariate case. 
