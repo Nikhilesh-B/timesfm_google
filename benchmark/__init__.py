@@ -30,7 +30,10 @@ __all__ = [
     "ReplicatedBenchmarkResults",
     "Forecaster",
     "MeanForecaster",
+    "NaiveBenchmarkForecaster",
     "ARIMAForecaster",
+    "AutoARIMAForecaster",
+    "MLBayesARForecaster",
     "BayesianARForecaster",
     "SSAForecaster",
     "TimesFMForecaster",
@@ -86,10 +89,28 @@ def __getattr__(name: str) -> Any:
         from benchmark.forecasters.mean import MeanForecaster as _MeanForecaster
 
         out = _MeanForecaster
+    elif name == "NaiveBenchmarkForecaster":
+        from benchmark.forecasters.naive import (
+            NaiveBenchmarkForecaster as _NaiveBenchmarkForecaster,
+        )
+
+        out = _NaiveBenchmarkForecaster
     elif name == "ARIMAForecaster":
         from benchmark.forecasters.arima import ARIMAForecaster as _ARIMAForecaster
 
         out = _ARIMAForecaster
+    elif name == "AutoARIMAForecaster":
+        from benchmark.forecasters.auto_arima import (
+            AutoARIMAForecaster as _AutoARIMAForecaster,
+        )
+
+        out = _AutoARIMAForecaster
+    elif name == "MLBayesARForecaster":
+        from benchmark.forecasters.ml_bayes_ar import (
+            MLBayesARForecaster as _MLBayesARForecaster,
+        )
+
+        out = _MLBayesARForecaster
     elif name == "BayesianARForecaster":
         from benchmark.forecasters.bayesian_ar import (
             BayesianARForecaster as _BayesianARForecaster,

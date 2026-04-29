@@ -1,19 +1,14 @@
 1. Choosing parameters for the linear models (p,q,r)
 2. Naive benchmark:
     i) Run prelim AR(1) model => if rho > 0.7 then naive benchmark is the last obsevrvation [for persitent time series], if <0.7 just do mean; Also do AR(1) too
-    ii) Then automate ARIMA => uncontravetial way of selecting paramters 
+    ii) Then automate ARIMA => uncontravetial way of selecting paramters => use ACF/PACF plots to find the right one and test for automatic which one you should use; for D think through that too; 
     iii) Tougher bayesian competitor:
         Optimal bayesian way to select lambda for the by maximizing the marginal likelihood (forecasting chance)
         More lags AR(p): could leave it by a very high number [at least 24 months] => equal the capital H (for the horizon)
-
-        Minesotta prior => tightness selected MLE for Minesotta error (and) [Univariate forecasting] => Bayesian AR with a minessota prior => set according to marginal likelihood 
-
-        Economics => VAR (bayesian => give my the slides) (Google uni-variate);
+        > Minesotta prior => tightness selected MLE for Minesotta error (and) [Univariate forecasting] => Bayesian AR with a minessota prior => set according to marginal likelihood 
+        > Economics => VAR (bayesian => give my the slides) (Google uni-variate);
     iv) How to scale it => speed is important 
-
-
 Become suscipious and use it's information and we may want o retrain it ourselves; 
 Large bayesian vector auto-regressions' => 131 (deep learning). Barbuna; 
 Fred-MD => 134 values; 
-
 What they have used for training => control the training and see how it => try to train the model and see how it does; 
